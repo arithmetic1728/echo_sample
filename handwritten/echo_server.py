@@ -15,20 +15,26 @@ class EchoServicer(echo_pb2_grpc.EchoServicer):
         pass
 
     def Echo(self, request, context):
+        print("==== received request for Echo ===")
+        print(request)
         return echo_pb2.EchoResponse(content=request.content)
 
     def Expand(self, request, context):
+        print("==== received request for Expand ===")
+        print(request)
         arr = request.content.split()
         for word in arr:
             yield echo_pb2.EchoResponse(content=word)
 
     def Collect(self, request_iterator, context):
+        print("==== received request for Collect ===")
         res = ""
         for req in request_iterator:
             res = res + " " + req.content
         return echo_pb2.EchoResponse(content=res)
 
     def Chat(self, request_iterator, context):
+        print("==== received request for Chat ===")
         for key, value in context.invocation_metadata():
             print('Received initial metadata: key=%s value=%s' % (key, value))
         context.set_trailing_metadata((
