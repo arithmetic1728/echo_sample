@@ -46,6 +46,10 @@ class EchoServicer(echo_pb2_grpc.EchoServicer):
     def Expand(self, request, context):
         print("==== received request for Expand ===")
         print(request)
+        context.set_trailing_metadata((
+            ('checksum-bin', b'I agree'),
+            ('retry', 'false'),
+        ))
         arr = request.content.split()
         for word in arr:
             yield echo_pb2.EchoResponse(content=word)
