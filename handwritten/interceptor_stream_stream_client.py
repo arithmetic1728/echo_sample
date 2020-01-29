@@ -4,32 +4,11 @@ import random
 import logging
 
 import grpc
+import sys
 
 import echo_pb2
 import echo_pb2_grpc
-import header_manipulator_client_interceptor
-
-
-def echo(stub):
-    request = echo_pb2.EchoRequest(content="hello world!")
-    response = stub.Echo(request)
-    print(response)
-
-def expand(stub):
-    responses = stub.Expand(echo_pb2.EchoRequest(content="hello world ! welcome !"))
-    for res in responses:
-        print(res)
-    print("trailing metadata is:")
-    print(responses.trailing_metadata())
-
-def collect(stub):
-    mylist = []
-    mylist.append(echo_pb2.EchoRequest(content="hello"))
-    mylist.append(echo_pb2.EchoRequest(content="world"))
-    mylist.append(echo_pb2.EchoRequest(content="!"))
-    response = stub.Collect(iter(mylist))
-    print(response)
-
+import client_interceptor
 
 def chat(stub):
     mylist = []
@@ -48,23 +27,26 @@ def chat(stub):
     print(responses.trailing_metadata())
 
 
-def run():
-    header_adder_interceptor = header_manipulator_client_interceptor.header_adder_interceptor(
+def run_should_pass():
+    header_adder_interceptor = client_interceptor.header_adder_interceptor(
         'one-time-password', '42')
     with grpc.insecure_channel('localhost:50051') as channel:
         intercept_channel = grpc.intercept_channel(channel,
                                                    header_adder_interceptor)
         stub = echo_pb2_grpc.EchoStub(intercept_channel)
-        print("-------------- Echo --------------")
-        echo(stub)
-        print("-------------- Expand --------------")
-        expand(stub)
-        print("-------------- Collect --------------")
-        collect(stub)
-        print("-------------- Chat --------------")
+        print("================= should pass ====================")
         chat(stub)
 
+def run_should_fail():
+    with grpc.insecure_channel('localhost:50051') as channel:
+        stub = echo_pb2_grpc.EchoStub(channel)
+        print("================= should fail with 'Access denied!' ====================")
+        try:
+            chat(stub)
+        except:
+            print(sys.exc_info())
 
 if __name__ == '__main__':
     logging.basicConfig()
-    run()
+    run_should_pass()
+    run_should_fail()
