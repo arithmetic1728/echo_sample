@@ -7,16 +7,20 @@ import grpc
 
 import echo_pb2
 import echo_pb2_grpc
+import header_manipulator_client_interceptor
 
 
 def echo(stub):
     request = echo_pb2.EchoRequest(content="hello world!")
-    return stub.Echo(request)
+    response = stub.Echo(request)
+    print(response)
 
 def expand(stub):
     responses = stub.Expand(echo_pb2.EchoRequest(content="hello world ! welcome !"))
     for res in responses:
         print(res)
+    print("trailing metadata is:")
+    print(responses.trailing_metadata())
 
 def collect(stub):
     mylist = []
@@ -45,8 +49,12 @@ def chat(stub):
 
 
 def run():
+    header_adder_interceptor = header_manipulator_client_interceptor.header_adder_interceptor(
+        'one-time-password', '42')
     with grpc.insecure_channel('localhost:50051') as channel:
-        stub = echo_pb2_grpc.EchoStub(channel)
+        intercept_channel = grpc.intercept_channel(channel,
+                                                   header_adder_interceptor)
+        stub = echo_pb2_grpc.EchoStub(intercept_channel)
         print("-------------- Echo --------------")
         echo(stub)
         print("-------------- Expand --------------")

@@ -8,6 +8,30 @@ import grpc
 import echo_pb2
 import echo_pb2_grpc
 
+def _unary_stream_rpc_terminator(code, details):
+
+    def terminate(ignored_request, context):
+        context.abort(code, details)
+
+    return grpc.unary_stream_rpc_method_handler(terminate)
+
+
+class RequestHeaderValidatorInterceptor(grpc.ServerInterceptor):
+
+    def __init__(self, header, value, code, details):
+        self._header = header
+        self._value = value
+        self._terminator = _unary_stream_rpc_terminator(code, details)
+
+    def intercept_service(self, continuation, handler_call_details):
+        if (self._header,
+                self._value) in handler_call_details.invocation_metadata:
+            print("-----interceptor is called, continue-----")
+            return continuation(handler_call_details)
+        else:
+            print("-----interceptor is called, terminating-----")
+            return self._terminator
+
 class EchoServicer(echo_pb2_grpc.EchoServicer):
     """Provides methods that implement functionality of route guide server."""
 
@@ -46,7 +70,11 @@ class EchoServicer(echo_pb2_grpc.EchoServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    header_validator = RequestHeaderValidatorInterceptor(
+        'one-time-password', '42', grpc.StatusCode.UNAUTHENTICATED,
+        'Access denied!')
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
+                         interceptors=(header_validator,))
     echo_pb2_grpc.add_EchoServicer_to_server(
         EchoServicer(), server)
     server.add_insecure_port('[::]:50051')
